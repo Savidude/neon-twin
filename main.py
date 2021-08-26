@@ -5,6 +5,10 @@ import numpy as np
 BG_COLOR = (255, 255, 255)
 SEGMENTATION_MODEL = 0
 
+NEON_COLOURS = [[53, 31, 178], [53, 39, 216], [53, 116, 255], [53, 161, 255], [53, 203, 255], [53, 240, 255],
+                [58, 117, 0], [71, 158, 0], [53, 221, 22], [165, 92, 0], [231, 121, 0], [252, 160, 0], [126, 30, 104],
+                [181, 60, 125], [246, 122, 189]]
+
 
 def segment_person(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -39,6 +43,21 @@ def get_transparent_background(image):
     return image
 
 
+def set_colour(image, total_frames):
+    white_pixels = np.where(
+        (image[:, :, 0] == 255) &
+        (image[:, :, 1] == 255) &
+        (image[:, :, 2] == 255)
+    )
+    colour = NEON_COLOURS[total_frames % 15]
+    colour.append(255)  # append alpha channel
+    image[white_pixels] = colour
+    del colour[-1]
+
+    total_frames += 1
+    return image, total_frames
+
+
 def overlay(background, foreground):
     background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
     overlay = cv2.add(foreground, background)
@@ -57,6 +76,7 @@ out = cv2.VideoWriter('neon-twin.avi',
                       cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
                       30, (w, h))
 
+total_frames = 0
 with mp_selfie_segmentation.SelfieSegmentation(model_selection=SEGMENTATION_MODEL) as selfie_segmentation:
     while cap.isOpened():
         success, frame = cap.read()
@@ -68,6 +88,7 @@ with mp_selfie_segmentation.SelfieSegmentation(model_selection=SEGMENTATION_MODE
         res = detect_edges(res)
         res = cv2.flip(res, 1)
         res = get_transparent_background(res)
+        res, total_frames = set_colour(res, total_frames)
         res = overlay(frame, res)
 
         out.write(res)
